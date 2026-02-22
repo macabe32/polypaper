@@ -1,0 +1,19 @@
+[package]
+name = "polymarket-cli"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88.0"
+
+[[bin]]
+name = "polymarket"
+path = "src/main.rs"
+
+[dependencies]
+polymarket-client-sdk = { path = "../rs-clob-client", features = ["gamma"] }
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+serde_json = "1"
+tabled = "0.17"
+rust_decimal = "1"
+serde = "1"
+anyhow = "1"
