@@ -54,6 +54,14 @@ pub fn config_exists() -> bool {
     config_path().is_ok_and(|p| p.exists())
 }
 
+pub fn delete_config() -> Result<()> {
+    let dir = config_dir()?;
+    if dir.exists() {
+        fs::remove_dir_all(&dir).context("Failed to remove config directory")?;
+    }
+    Ok(())
+}
+
 pub fn load_config() -> Option<Config> {
     let path = config_path().ok()?;
     let data = fs::read_to_string(path).ok()?;

@@ -1,9 +1,8 @@
-#![allow(clippy::items_after_statements)]
-
 mod auth;
 mod commands;
 mod config;
 mod output;
+mod shell;
 
 use std::process::ExitCode;
 
@@ -12,13 +11,13 @@ use output::OutputFormat;
 
 #[derive(Parser)]
 #[command(name = "polymarket", about = "Polymarket CLI", version)]
-struct Cli {
+pub(crate) struct Cli {
     #[command(subcommand)]
     command: Commands,
 
     /// Output format: table or json
     #[arg(short, long, global = true, default_value = "table")]
-    output: OutputFormat,
+    pub(crate) output: OutputFormat,
 
     /// Private key (overrides env var and config file)
     #[arg(long, global = true)]
@@ -31,6 +30,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Guided first-time setup (wallet, proxy, approvals)
+    Setup,
+    /// Launch interactive shell
+    Shell,
     /// Interact with markets
     Markets(commands::markets::MarketsArgs),
     /// Interact with events
@@ -60,7 +63,7 @@ enum Commands {
 #[tokio::main]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
-    let output = cli.output.clone();
+    let output = cli.output;
 
     if let Err(e) = run(cli).await {
         match output {
@@ -78,8 +81,13 @@ async fn main() -> ExitCode {
 }
 
 #[allow(clippy::too_many_lines)]
-async fn run(cli: Cli) -> anyhow::Result<()> {
+pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
+        Commands::Setup => commands::setup::execute(),
+        Commands::Shell => {
+            Box::pin(shell::run_shell()).await;
+            Ok(())
+        }
         Commands::Markets(args) => {
             commands::markets::execute(
                 &polymarket_client_sdk::gamma::Client::default(),

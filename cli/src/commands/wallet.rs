@@ -42,6 +42,12 @@ pub enum WalletCommand {
     Address,
     /// Show wallet info (address, config path, key source)
     Show,
+    /// Delete all config and keys (fresh install)
+    Reset {
+        /// Skip confirmation prompt
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 pub fn execute(
@@ -61,6 +67,7 @@ pub fn execute(
         } => cmd_import(&key, output, force, &signature_type),
         WalletCommand::Address => cmd_address(output, private_key_flag),
         WalletCommand::Show => cmd_show(output, private_key_flag),
+        WalletCommand::Reset { force } => cmd_reset(output, force),
     }
 }
 
@@ -74,7 +81,7 @@ fn guard_overwrite(force: bool) -> Result<()> {
     Ok(())
 }
 
-fn normalize_key(key: &str) -> String {
+pub(crate) fn normalize_key(key: &str) -> String {
     if key.starts_with("0x") || key.starts_with("0X") {
         key.to_string()
     } else {
@@ -219,6 +226,50 @@ fn cmd_show(output: &OutputFormat, private_key_flag: Option<&str>) -> Result<()>
             println!("Signature type: {sig_type}");
             println!("Config path:    {}", config_path.display());
             println!("Key source:     {}", source.label());
+        }
+    }
+    Ok(())
+}
+
+fn cmd_reset(output: &OutputFormat, force: bool) -> Result<()> {
+    if !config::config_exists() {
+        match output {
+            OutputFormat::Table => println!("Nothing to reset. No config found."),
+            OutputFormat::Json => {
+                println!("{}", serde_json::json!({"reset": false, "reason": "no config found"}));
+            }
+        }
+        return Ok(());
+    }
+
+    if !force {
+        use std::io::{self, BufRead, Write};
+        print!("This will delete all keys and config. Are you sure? [y/N] ");
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().lock().read_line(&mut input)?;
+        if !matches!(input.trim().to_lowercase().as_str(), "y" | "yes") {
+            println!("Aborted.");
+            return Ok(());
+        }
+    }
+
+    let path = config::config_path()?;
+    config::delete_config()?;
+
+    match output {
+        OutputFormat::Table => {
+            println!("Config deleted: {}", path.display());
+            println!("All keys and settings have been removed.");
+        }
+        OutputFormat::Json => {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "reset": true,
+                    "deleted": path.display().to_string(),
+                })
+            );
         }
     }
     Ok(())

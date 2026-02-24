@@ -711,7 +711,7 @@ pub async fn execute(
             post_only,
         } => {
             let signer = auth::resolve_signer(private_key)?;
-            let client = auth::authenticated_clob_client(private_key, signature_type).await?;
+            let client = auth::authenticate_with_signer(&signer, signature_type).await?;
 
             let price_dec =
                 Decimal::from_str(&price).map_err(|_| anyhow::anyhow!("Invalid price: {price}"))?;
@@ -741,7 +741,7 @@ pub async fn execute(
             order_type,
         } => {
             let signer = auth::resolve_signer(private_key)?;
-            let client = auth::authenticated_clob_client(private_key, signature_type).await?;
+            let client = auth::authenticate_with_signer(&signer, signature_type).await?;
 
             let token_ids = parse_token_ids(&tokens)?;
             let price_strs: Vec<&str> = prices.split(',').map(str::trim).collect();
@@ -788,7 +788,7 @@ pub async fn execute(
             order_type,
         } => {
             let signer = auth::resolve_signer(private_key)?;
-            let client = auth::authenticated_clob_client(private_key, signature_type).await?;
+            let client = auth::authenticate_with_signer(&signer, signature_type).await?;
 
             let amount_dec = Decimal::from_str(&amount)
                 .map_err(|_| anyhow::anyhow!("Invalid amount: {amount}"))?;

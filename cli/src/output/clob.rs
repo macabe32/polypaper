@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_statements)]
+
 use polymarket_client_sdk::auth::Credentials;
 use polymarket_client_sdk::clob::types::response::{
     ApiKeysResponse, BalanceAllowanceResponse, BanStatusResponse, CancelOrdersResponse,
@@ -15,6 +17,9 @@ use tabled::settings::Style;
 use tabled::{Table, Tabled};
 
 use super::{OutputFormat, format_decimal, truncate};
+
+/// Base64-encoded empty cursor returned by the CLOB API when there are no more pages.
+const END_CURSOR: &str = "LTE=";
 
 // --- Ok ---
 
@@ -461,7 +466,7 @@ pub fn print_clob_markets(result: &Page<MarketResponse>, output: &OutputFormat) 
                 .collect();
             let table = Table::new(rows).with(Style::rounded()).to_string();
             println!("{table}");
-            if result.next_cursor != "LTE=" {
+            if result.next_cursor != END_CURSOR {
                 println!("Next cursor: {}", result.next_cursor);
             }
         }
@@ -508,7 +513,7 @@ pub fn print_simplified_markets(result: &Page<SimplifiedMarketResponse>, output:
                 .collect();
             let table = Table::new(rows).with(Style::rounded()).to_string();
             println!("{table}");
-            if result.next_cursor != "LTE=" {
+            if result.next_cursor != END_CURSOR {
                 println!("Next cursor: {}", result.next_cursor);
             }
         }
@@ -702,7 +707,7 @@ pub fn print_orders(result: &Page<OpenOrderResponse>, output: &OutputFormat) {
                 .collect();
             let table = Table::new(rows).with(Style::rounded()).to_string();
             println!("{table}");
-            if result.next_cursor != "LTE=" {
+            if result.next_cursor != END_CURSOR {
                 println!("Next cursor: {}", result.next_cursor);
             }
         }
@@ -906,7 +911,7 @@ pub fn print_trades(result: &Page<TradeResponse>, output: &OutputFormat) {
                 .collect();
             let table = Table::new(rows).with(Style::rounded()).to_string();
             println!("{table}");
-            if result.next_cursor != "LTE=" {
+            if result.next_cursor != END_CURSOR {
                 println!("Next cursor: {}", result.next_cursor);
             }
         }
@@ -1069,7 +1074,7 @@ pub fn print_rewards(result: &Page<UserEarningResponse>, output: &OutputFormat) 
                 .collect();
             let table = Table::new(rows).with(Style::rounded()).to_string();
             println!("{table}");
-            if result.next_cursor != "LTE=" {
+            if result.next_cursor != END_CURSOR {
                 println!("Next cursor: {}", result.next_cursor);
             }
         }
@@ -1274,7 +1279,7 @@ pub fn print_current_rewards(result: &Page<CurrentRewardResponse>, output: &Outp
                 .collect();
             let table = Table::new(rows).with(Style::rounded()).to_string();
             println!("{table}");
-            if result.next_cursor != "LTE=" {
+            if result.next_cursor != END_CURSOR {
                 println!("Next cursor: {}", result.next_cursor);
             }
         }
@@ -1329,7 +1334,7 @@ pub fn print_market_reward(result: &Page<MarketRewardResponse>, output: &OutputF
                     );
                 }
             }
-            if result.next_cursor != "LTE=" {
+            if result.next_cursor != END_CURSOR {
                 println!("Next cursor: {}", result.next_cursor);
             }
         }

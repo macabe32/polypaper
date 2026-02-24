@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_statements)]
+
 use polymarket_client_sdk::data::types::response::{
     Activity, BuilderLeaderboardEntry, BuilderVolumeEntry, ClosedPosition, LiveVolume, Market,
     MetaHolder, OpenInterest, Position, Trade, Traded, TraderLeaderboardEntry, Value,

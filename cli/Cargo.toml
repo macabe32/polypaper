@@ -19,6 +19,7 @@ rust_decimal = "1"
 anyhow = "1"
 chrono = "0.4"
 dirs = "6"
+rustyline = "15"
 
 [dev-dependencies]
 assert_cmd = "2"

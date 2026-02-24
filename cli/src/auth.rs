@@ -31,10 +31,17 @@ pub async fn authenticated_clob_client(
     signature_type_flag: Option<&str>,
 ) -> Result<clob::Client<Authenticated<Normal>>> {
     let signer = resolve_signer(private_key)?;
+    authenticate_with_signer(&signer, signature_type_flag).await
+}
+
+pub async fn authenticate_with_signer(
+    signer: &(impl polymarket_client_sdk::auth::Signer + Sync),
+    signature_type_flag: Option<&str>,
+) -> Result<clob::Client<Authenticated<Normal>>> {
     let sig_type = parse_signature_type(&config::resolve_signature_type(signature_type_flag));
 
     clob::Client::default()
-        .authentication_builder(&signer)
+        .authentication_builder(signer)
         .signature_type(sig_type)
         .authenticate()
         .await

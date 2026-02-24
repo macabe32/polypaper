@@ -15,7 +15,7 @@ use tabled::Table;
 use tabled::settings::object::Columns;
 use tabled::settings::{Modify, Style, Width};
 
-#[derive(Clone, Debug, clap::ValueEnum)]
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub enum OutputFormat {
     Table,
     Json,

@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_statements)]
+
 use polymarket_client_sdk::bridge::types::{
     DepositResponse, DepositTransactionStatus, StatusResponse, SupportedAssetsResponse,
 };
