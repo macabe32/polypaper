@@ -21,31 +21,85 @@ Treat Polymarket paper trading like an algorithm discovery lab:
 This project is intentionally not "preset strategy only." Built-ins are examples, not constraints.
 The primary purpose is to let agents discover novel algorithms.
 
-## Install
+## Requirements
+
+- Python 3.10+ (`python3 --version`)
+- Network access to public Polymarket APIs (Gamma + CLOB)
+- Optional: Rust toolchain only if you also want to build the Rust `polymarket` CLI from source
+
+## Install (Python package)
+
+This repo uses `pyproject.toml` (PEP 621) for dependencies, so there is no `requirements.txt`.
+The `.venv` folder is generated locally when you run setup and is intentionally not committed.
 
 ```bash
 cd polymarket-cli
 python3 -m venv .venv
+./.venv/bin/python -m pip install --upgrade pip
 ./.venv/bin/pip install -e .
 ```
 
-Then:
+Smoke test:
+
+```bash
+./.venv/bin/polytrader --help
+./.venv/bin/polytrader models --json
+```
+
+If you prefer activating the environment:
+
+```bash
+source .venv/bin/activate
+polytrader --help
+```
+
+For autonomous runners, prefer explicit binary paths over shell activation:
 
 ```bash
 ./.venv/bin/polytrader --help
 ```
 
-## Agent Workflow
+## Agent Runtime Contract (CLI)
+
+`polytrader` is designed for autonomous agent execution:
+
+- Non-interactive commands (safe for loops/subprocess runners)
+- Machine-readable output via `--json`
+- Deterministic command/exit semantics
+- Paper-trading default workflow (no private credentials required)
+
+Recommended invocation style for agents:
 
 ```bash
-polytrader init --bankroll 10000 --json
-polytrader markets --query bitcoin --limit 20 --json
-polytrader scan --model kelly_gbm --sizer kelly --query bitcoin --json
-polytrader account --json
-polytrader positions --json
-polytrader resolve --slug some-market-slug --outcome yes --json
-polytrader history --json
-polytrader models --json
+./.venv/bin/polytrader <command> ... --json
+```
+
+Interpret exit codes:
+
+- `0`: success
+- `1`: error
+- `2`: scan completed with zero placed paper orders (not a crash)
+
+## Minimal first run (paper mode, agent-safe)
+
+```bash
+./.venv/bin/polytrader init --bankroll 10000 --json
+./.venv/bin/polytrader markets --query bitcoin --limit 20 --json
+./.venv/bin/polytrader scan --model kelly_gbm --sizer kelly --query bitcoin --json
+./.venv/bin/polytrader account --json
+```
+
+## Agent Workflow (CLI)
+
+```bash
+./.venv/bin/polytrader init --bankroll 10000 --json
+./.venv/bin/polytrader markets --query bitcoin --limit 20 --json
+./.venv/bin/polytrader scan --model kelly_gbm --sizer kelly --query bitcoin --json
+./.venv/bin/polytrader account --json
+./.venv/bin/polytrader positions --json
+./.venv/bin/polytrader resolve --slug some-market-slug --outcome yes --json
+./.venv/bin/polytrader history --json
+./.venv/bin/polytrader models --json
 ```
 
 ## Multi-Agent Discovery Workflow
@@ -114,7 +168,7 @@ Walks ask levels to simulate slippage and partial depth consumption.
 Pass import paths instead of built-ins. This is the core extension mechanism:
 
 ```bash
-polytrader scan \
+./.venv/bin/polytrader scan \
   --model mypkg.custom_model:MyModel \
   --sizer mypkg.custom_sizer:MySizer \
   --model-config '{"alpha":0.3}' \
@@ -131,14 +185,14 @@ That includes:
 Quick scaffolding:
 
 ```bash
-polytrader scaffold-model --name my_edge --class-name MyEdgeModel --output plugins/my_edge_model.py --json
-polytrader scaffold-sizer --name my_risk --class-name MyRiskSizer --output plugins/my_risk_sizer.py --json
+./.venv/bin/polytrader scaffold-model --name my_edge --class-name MyEdgeModel --output plugins/my_edge_model.py --json
+./.venv/bin/polytrader scaffold-sizer --name my_risk --class-name MyRiskSizer --output plugins/my_risk_sizer.py --json
 ```
 
 Then load:
 
 ```bash
-polytrader scan \
+./.venv/bin/polytrader scan \
   --model plugins.my_edge_model:MyEdgeModel \
   --sizer plugins.my_risk_sizer:MyRiskSizer \
   --model-config '{"edge_threshold":0.015}' \
@@ -152,7 +206,7 @@ polytrader scan \
 Agents can query a structured variable catalog:
 
 ```bash
-polytrader vars --json
+./.venv/bin/polytrader vars --json
 ```
 
 This returns default search space metadata for:
@@ -166,7 +220,7 @@ This returns default search space metadata for:
 Run a set of experiments from one JSON file:
 
 ```bash
-polytrader tournament --spec-file tournament.spec.example.json --json
+./.venv/bin/polytrader tournament --spec-file tournament.spec.example.json --json
 ```
 
 Each experiment can define:
@@ -182,15 +236,15 @@ See `tournament.spec.example.json` for the schema.
 Agent primitives for discovery:
 
 ```bash
-polytrader vars --json
-polytrader mutate-spec \
+./.venv/bin/polytrader vars --json
+./.venv/bin/polytrader mutate-spec \
   --base-spec-file tournament.spec.example.json \
   --search-space-file search_space.example.json \
   --output-file tournament.generated.json \
   --json
-polytrader tournament --spec-file tournament.generated.json --json
-polytrader rank --experiments-dir experiments --json
-polytrader replay --db experiments/exp-kelly-gbm.sqlite3 --start-ts 2026-02-25T00:00:00+00:00 --json
+./.venv/bin/polytrader tournament --spec-file tournament.generated.json --json
+./.venv/bin/polytrader rank --experiments-dir experiments --json
+./.venv/bin/polytrader replay --db experiments/exp-kelly-gbm.sqlite3 --start-ts 2026-02-25T00:00:00+00:00 --json
 ```
 
 Artifacts:
@@ -201,9 +255,9 @@ Artifacts:
 Ranking options:
 
 ```bash
-polytrader rank --experiments-dir experiments --by score --json
-polytrader rank --experiments-dir experiments --by realized_pnl --json
-polytrader rank --experiments-dir experiments --pareto --pareto-metrics realized_pnl,unrealized_pnl,win_rate,signal_count --json
+./.venv/bin/polytrader rank --experiments-dir experiments --by score --json
+./.venv/bin/polytrader rank --experiments-dir experiments --by realized_pnl --json
+./.venv/bin/polytrader rank --experiments-dir experiments --pareto --pareto-metrics realized_pnl,unrealized_pnl,win_rate,signal_count --json
 ```
 
 ## Moltbook Launch Pack
