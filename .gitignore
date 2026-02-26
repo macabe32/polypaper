@@ -17,5 +17,13 @@ rs-clob-client/
 
 *.local
 .env
+.venv/
+__pycache__/
+*.pyc
+*.sqlite3
+*.db
+*.jsonl
+*.log
+strategy.runtime.json
 
 CLAUDE.md

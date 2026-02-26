@@ -1,0 +1,39 @@
+{
+  "experiments": [
+    {
+      "tag": "exp-kelly-gbm",
+      "init_bankroll": 10000,
+      "scan": {
+        "model": "kelly_gbm",
+        "sizer": "kelly",
+        "query": "bitcoin",
+        "limit": 50,
+        "min_liquidity": 50000,
+        "min_volume": 100000,
+        "model_config": {
+          "min_edge": 0.003
+        },
+        "sizer_config": {
+          "fraction": 0.2,
+          "max_usd": 200
+        }
+      }
+    },
+    {
+      "tag": "exp-fixed-control",
+      "init_bankroll": 10000,
+      "scan": {
+        "model": "always_pass",
+        "sizer": "fixed",
+        "query": "bitcoin",
+        "limit": 50,
+        "min_liquidity": 50000,
+        "min_volume": 100000,
+        "model_config": {},
+        "sizer_config": {
+          "usd": 25
+        }
+      }
+    }
+  ]
+}

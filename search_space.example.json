@@ -1,0 +1,10 @@
+{
+  "scan.model": ["kelly_gbm"],
+  "scan.sizer": ["kelly", "fixed"],
+  "scan.query": ["bitcoin"],
+  "scan.min_liquidity": [25000, 50000, 100000],
+  "scan.min_volume": [50000, 100000],
+  "scan.model_config.min_edge": [0.0015, 0.002, 0.003],
+  "scan.sizer_config.fraction": [0.1, 0.2, 0.3],
+  "scan.sizer_config.max_usd": [100, 200]
+}

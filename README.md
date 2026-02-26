@@ -1,492 +1,261 @@
-# Polymarket CLI
+ # polytrader
 
-Rust CLI for Polymarket. Browse markets, place orders, manage positions, and interact with onchain contracts — from a terminal or as a JSON API for scripts and agents.
+Agent-first modular paper trading framework for Polymarket prediction markets.
 
-> **Warning:** This is early, experimental software. Use at your own risk and do not use with large amounts of funds. APIs, commands, and behavior may change without notice. Always verify transactions before confirming.
+`polytrader` is built for autonomous agents that need end-to-end, non-interactive workflows:
+- JSON-friendly command outputs (`--json`)
+- deterministic command semantics
+- persistent state in SQLite
+- pluggable strategy components (models + risk engines/sizers + fill engine)
+
+## Mission
+
+Treat Polymarket paper trading like an algorithm discovery lab:
+- discover markets from public APIs
+- invent and evaluate interchangeable models
+- invent and evaluate interchangeable risk engines/sizers
+- simulate realistic order-book fills
+- persist account, positions, and trade history for agent reasoning loops
+- enable many agents to propose, test, compare, and evolve new algorithms
+
+This project is intentionally not "preset strategy only." Built-ins are examples, not constraints.
+The primary purpose is to let agents discover novel algorithms.
 
 ## Install
 
-### Homebrew (macOS / Linux)
-
 ```bash
-brew tap Polymarket/polymarket-cli https://github.com/Polymarket/polymarket-cli
-brew install polymarket
-```
-
-### Shell script
-
-```bash
-curl -sSL https://raw.githubusercontent.com/Polymarket/polymarket-cli/main/install.sh | sh
-```
-
-### Build from source
-
-```bash
-git clone https://github.com/Polymarket/polymarket-cli
 cd polymarket-cli
-cargo install --path .
+python3 -m venv .venv
+./.venv/bin/pip install -e .
 ```
 
-## Quick Start
+Then:
 
 ```bash
-# No wallet needed — browse markets immediately
-polymarket markets list --limit 5
-polymarket markets search "election"
-polymarket events list --tag politics
-
-# Check a specific market
-polymarket markets get will-trump-win-the-2024-election
-
-# JSON output for scripts
-polymarket -o json markets list --limit 3
+./.venv/bin/polytrader --help
 ```
 
-To trade, set up a wallet:
+## Agent Workflow
 
 ```bash
-polymarket setup
-# Or manually:
-polymarket wallet create
-polymarket approve set
+polytrader init --bankroll 10000 --json
+polytrader markets --query bitcoin --limit 20 --json
+polytrader scan --model kelly_gbm --sizer kelly --query bitcoin --json
+polytrader account --json
+polytrader positions --json
+polytrader resolve --slug some-market-slug --outcome yes --json
+polytrader history --json
+polytrader models --json
 ```
 
-## Configuration
+## Multi-Agent Discovery Workflow
 
-### Wallet Setup
+Typical discovery loop for a team of agents:
 
-The CLI needs a private key to sign orders and on-chain transactions. Three ways to provide it (checked in this order):
+1. **Research agent** identifies a market subset and hypotheses.
+2. **Model agent** generates/updates a custom `BaseModel`.
+3. **Risk agent** generates/updates a custom `BaseSizer`.
+4. **Execution agent** runs `scan` and captures JSON artifacts.
+5. **Evaluator agent** compares outcomes via `account`, `positions`, `history`.
+6. **Coordinator agent** promotes or rejects algorithm variants.
 
-1. **CLI flag**: `--private-key 0xabc...`
-2. **Environment variable**: `POLYMARKET_PRIVATE_KEY=0xabc...`
-3. **Config file**: `~/.config/polymarket/config.json`
-
-```bash
-# Create a new wallet (generates random key, saves to config)
-polymarket wallet create
-
-# Import an existing key
-polymarket wallet import 0xabc123...
-
-# Check what's configured
-polymarket wallet show
-```
-
-The config file (`~/.config/polymarket/config.json`):
-
-```json
-{
-  "private_key": "0x...",
-  "chain_id": 137,
-  "signature_type": "proxy"
-}
-```
-
-### Signature Types
-
-- `proxy` (default) — uses Polymarket's proxy wallet system
-- `eoa` — signs directly with your key
-- `gnosis-safe` — for multisig wallets
-
-Override per-command with `--signature-type eoa` or via `POLYMARKET_SIGNATURE_TYPE`.
-
-### What Needs a Wallet
-
-Most commands work without a wallet — browsing markets, viewing order books, checking prices. You only need a wallet for:
-
-- Placing and canceling orders (`clob create-order`, `clob market-order`, `clob cancel-*`)
-- Checking your balances and trades (`clob balance`, `clob trades`, `clob orders`)
-- On-chain operations (`approve set`, `ctf split/merge/redeem`)
-- Reward and API key management (`clob rewards`, `clob create-api-key`)
-
-## Output Formats
-
-Every command supports `--output table` (default) and `--output json`.
-
-```bash
-# Human-readable table (default)
-polymarket markets list --limit 2
-```
-
-```
- Question                            Price (Yes)  Volume   Liquidity  Status
- Will Trump win the 2024 election?   52.00¢       $145.2M  $1.2M      Active
- Will BTC hit $100k by Dec 2024?     67.30¢       $89.4M   $430.5K    Active
-```
-
-```bash
-# Machine-readable JSON
-polymarket -o json markets list --limit 2
-```
-
-```json
-[
-  { "id": "12345", "question": "Will Trump win the 2024 election?", "outcomePrices": ["0.52", "0.48"], ... },
-  { "id": "67890", "question": "Will BTC hit $100k by Dec 2024?", ... }
-]
-```
-
-Short form: `-o json` or `-o table`.
-
-Errors follow the same pattern — table mode prints `Error: ...` to stderr, JSON mode prints `{"error": "..."}` to stdout. Non-zero exit code either way.
+Because models/sizers are swappable, agents can mix-and-match components and iterate quickly.
 
 ## Commands
 
-### Markets
+- `polytrader init` – initialize SQLite state + paper account
+- `polytrader scan` – market fetch -> model -> sizer -> fill simulation -> persist
+- `polytrader vars` – machine-readable variable catalog for agent parameter search
+- `polytrader account` – cash, equity, open exposure, PnL
+- `polytrader positions` – open positions marked to midpoint
+- `polytrader resolve` – settle a market manually (`yes`/`no`)
+- `polytrader history` – realized trade performance
+- `polytrader runs` – inspect prior scan metadata for experiment comparison
+- `polytrader tournament` – run many experiment specs and rank results
+- `polytrader mutate-spec` – generate many experiment variants from a search space
+- `polytrader rank` – score existing experiment DBs
+- `polytrader replay` – time-window replay from recorded paper trades
+- `polytrader markets` – discover live markets without placing paper trades
+- `polytrader models` – list built-in models and sizers
+- `polytrader scaffold-model` – generate a custom model template
+- `polytrader scaffold-sizer` – generate a custom sizer template
+
+Exit codes:
+- `0`: success
+- `1`: error
+- `2`: scan completed with zero placed paper orders
+
+## Core Abstractions
+
+### Model
+`BaseModel.evaluate(MarketSnapshot) -> Signal | None`
+
+Built-ins:
+- `kelly_gbm` – GBM-style probability for BTC price-target markets
+- `always_pass` – null model for pipeline testing
+
+### Sizer
+`BaseSizer.size(Signal, cash) -> SizedOrder | None`
+
+Built-ins:
+- `kelly` – fractional Kelly sizing
+- `fixed` – fixed USD sizing
+- `equal_weight` – cash split by slots
+
+You can replace these entirely with your own risk engines.
+
+### Fill Engine
+`FillEngine.simulate_buy(book, usd_amount) -> FillResult | None`
+
+Walks ask levels to simulate slippage and partial depth consumption.
+
+## Plugin Pattern
+
+Pass import paths instead of built-ins. This is the core extension mechanism:
 
 ```bash
-# List markets with filters
-polymarket markets list --limit 10
-polymarket markets list --active true --order volume_num
-polymarket markets list --closed false --limit 50 --offset 25
-
-# Get a single market by ID or slug
-polymarket markets get 12345
-polymarket markets get will-trump-win
-
-# Search
-polymarket markets search "bitcoin" --limit 5
-
-# Get tags for a market
-polymarket markets tags 12345
+polytrader scan \
+  --model mypkg.custom_model:MyModel \
+  --sizer mypkg.custom_sizer:MySizer \
+  --model-config '{"alpha":0.3}' \
+  --sizer-config '{"risk_cap":0.05}' \
+  --json
 ```
 
-**Flags for `markets list`**: `--limit`, `--offset`, `--order`, `--ascending`, `--active`, `--closed`
+Any agent can create a new algorithm module and immediately use it without forking `polytrader`.
+That includes:
+- new signal-generation models
+- new sizing/risk logic
+- custom parameter schemas via `--model-config` / `--sizer-config`
 
-### Events
-
-Events group related markets (e.g. "2024 Election" contains multiple yes/no markets).
+Quick scaffolding:
 
 ```bash
-polymarket events list --limit 10
-polymarket events list --tag politics --active true
-polymarket events get 500
-polymarket events tags 500
+polytrader scaffold-model --name my_edge --class-name MyEdgeModel --output plugins/my_edge_model.py --json
+polytrader scaffold-sizer --name my_risk --class-name MyRiskSizer --output plugins/my_risk_sizer.py --json
 ```
 
-**Flags for `events list`**: `--limit`, `--offset`, `--order`, `--ascending`, `--active`, `--closed`, `--tag`
-
-### Tags, Series, Comments, Profiles, Sports
+Then load:
 
 ```bash
-# Tags
-polymarket tags list
-polymarket tags get politics
-polymarket tags related politics
-polymarket tags related-tags politics
-
-# Series (recurring events)
-polymarket series list --limit 10
-polymarket series get 42
-
-# Comments on an entity
-polymarket comments list --entity-type event --entity-id 500
-polymarket comments get abc123
-polymarket comments by-user 0xf5E6...
-
-# Public profiles
-polymarket profiles get 0xf5E6...
-
-# Sports metadata
-polymarket sports list
-polymarket sports market-types
-polymarket sports teams --league NFL --limit 32
+polytrader scan \
+  --model plugins.my_edge_model:MyEdgeModel \
+  --sizer plugins.my_risk_sizer:MyRiskSizer \
+  --model-config '{"edge_threshold":0.015}' \
+  --sizer-config '{"risk_fraction":0.03,"max_usd":150}' \
+  --experiment-tag "exp-2026-02-25-a" \
+  --json
 ```
 
-### Order Book & Prices (CLOB)
+## Variables For Agent Search
 
-All read-only — no wallet needed.
+Agents can query a structured variable catalog:
 
 ```bash
-# Check API health
-polymarket clob ok
-
-# Prices
-polymarket clob price 48331043336612883... --side buy
-polymarket clob midpoint 48331043336612883...
-polymarket clob spread 48331043336612883...
-
-# Batch queries (comma-separated token IDs)
-polymarket clob batch-prices "TOKEN1,TOKEN2" --side buy
-polymarket clob midpoints "TOKEN1,TOKEN2"
-polymarket clob spreads "TOKEN1,TOKEN2"
-
-# Order book
-polymarket clob book 48331043336612883...
-polymarket clob books "TOKEN1,TOKEN2"
-
-# Last trade
-polymarket clob last-trade 48331043336612883...
-
-# Market info
-polymarket clob market 0xABC123...  # by condition ID
-polymarket clob markets             # list all
-
-# Price history
-polymarket clob price-history 48331043336612883... --interval 1d --fidelity 30
-
-# Metadata
-polymarket clob tick-size 48331043336612883...
-polymarket clob fee-rate 48331043336612883...
-polymarket clob neg-risk 48331043336612883...
-polymarket clob time
-polymarket clob geoblock
+polytrader vars --json
 ```
 
-**Interval options for `price-history`**: `1m`, `1h`, `6h`, `1d`, `1w`, `max`
+This returns default search space metadata for:
+- scan-level knobs (`limit`, `min_liquidity`, `min_volume`, etc.)
+- built-in model configs
+- built-in sizer configs
+- plugin import format
 
-### Trading (CLOB, authenticated)
+## Tournament Mode
 
-Requires a configured wallet.
+Run a set of experiments from one JSON file:
 
 ```bash
-# Place a limit order (buy 10 shares at $0.50)
-polymarket clob create-order \
-  --token 48331043336612883... \
-  --side buy --price 0.50 --size 10
-
-# Place a market order (buy $5 worth)
-polymarket clob market-order \
-  --token 48331043336612883... \
-  --side buy --amount 5
-
-# Post multiple orders at once
-polymarket clob post-orders \
-  --tokens "TOKEN1,TOKEN2" \
-  --side buy \
-  --prices "0.40,0.60" \
-  --sizes "10,10"
-
-# Cancel
-polymarket clob cancel ORDER_ID
-polymarket clob cancel-orders "ORDER1,ORDER2"
-polymarket clob cancel-market --market 0xCONDITION...
-polymarket clob cancel-all
-
-# View your orders and trades
-polymarket clob orders
-polymarket clob orders --market 0xCONDITION...
-polymarket clob order ORDER_ID
-polymarket clob trades
-
-# Check balances
-polymarket clob balance --asset-type collateral
-polymarket clob balance --asset-type conditional --token 48331043336612883...
-polymarket clob update-balance --asset-type collateral
+polytrader tournament --spec-file tournament.spec.example.json --json
 ```
 
-**Order types**: `GTC` (default), `FOK`, `GTD`, `FAK`. Add `--post-only` for limit orders.
+Each experiment can define:
+- its own model + sizer
+- query and market filters
+- model/sizer configs
+- its own DB file (optional) and bankroll
 
-### Rewards & API Keys (CLOB, authenticated)
+See `tournament.spec.example.json` for the schema.
+
+## Autonomous Search Layer
+
+Agent primitives for discovery:
 
 ```bash
-polymarket clob rewards --date 2024-06-15
-polymarket clob earnings --date 2024-06-15
-polymarket clob earnings-markets --date 2024-06-15
-polymarket clob reward-percentages
-polymarket clob current-rewards
-polymarket clob market-reward 0xCONDITION...
-
-# Check if orders are scoring rewards
-polymarket clob order-scoring ORDER_ID
-polymarket clob orders-scoring "ORDER1,ORDER2"
-
-# API key management
-polymarket clob api-keys
-polymarket clob create-api-key
-polymarket clob delete-api-key
-
-# Account status
-polymarket clob account-status
-polymarket clob notifications
-polymarket clob delete-notifications "NOTIF1,NOTIF2"
+polytrader vars --json
+polytrader mutate-spec \
+  --base-spec-file tournament.spec.example.json \
+  --search-space-file search_space.example.json \
+  --output-file tournament.generated.json \
+  --json
+polytrader tournament --spec-file tournament.generated.json --json
+polytrader rank --experiments-dir experiments --json
+polytrader replay --db experiments/exp-kelly-gbm.sqlite3 --start-ts 2026-02-25T00:00:00+00:00 --json
 ```
 
-### On-Chain Data
+Artifacts:
+- `tournament.spec.example.json`
+- `search_space.example.json`
+- `docs/autonomous-search-layer.md`
 
-Public data — no wallet needed.
+Ranking options:
 
 ```bash
-# Portfolio
-polymarket data positions 0xWALLET_ADDRESS
-polymarket data closed-positions 0xWALLET_ADDRESS
-polymarket data value 0xWALLET_ADDRESS
-polymarket data traded 0xWALLET_ADDRESS
-
-# Trade history
-polymarket data trades 0xWALLET_ADDRESS --limit 50
-
-# Activity
-polymarket data activity 0xWALLET_ADDRESS
-
-# Market data
-polymarket data holders 0xCONDITION_ID
-polymarket data open-interest 0xCONDITION_ID
-polymarket data volume 12345  # event ID
-
-# Leaderboards
-polymarket data leaderboard --period month --order-by pnl --limit 10
-polymarket data builder-leaderboard --period week
-polymarket data builder-volume --period month
+polytrader rank --experiments-dir experiments --by score --json
+polytrader rank --experiments-dir experiments --by realized_pnl --json
+polytrader rank --experiments-dir experiments --pareto --pareto-metrics realized_pnl,unrealized_pnl,win_rate,signal_count --json
 ```
 
-### Contract Approvals
+## Moltbook Launch Pack
 
-Before trading, Polymarket contracts need ERC-20 (USDC) and ERC-1155 (CTF token) approvals.
+Copy-paste prompts for agent builders:
 
-```bash
-# Check current approvals (read-only)
-polymarket approve check
-polymarket approve check 0xSOME_ADDRESS
-
-# Approve all contracts (sends 6 on-chain transactions, needs MATIC for gas)
-polymarket approve set
+```text
+You are a strategy-search agent. Use polytrader vars --json to discover tunable variables.
+Then generate a search_space.json that explores at least 50 variants while keeping risk conservative.
+Use polytrader mutate-spec, tournament, and rank. Return top 10 candidates with rationale.
 ```
 
-### CTF Operations
-
-Split, merge, and redeem conditional tokens directly on-chain.
-
-```bash
-# Split $10 USDC into YES/NO tokens
-polymarket ctf split --condition 0xCONDITION... --amount 10
-
-# Merge tokens back to USDC
-polymarket ctf merge --condition 0xCONDITION... --amount 10
-
-# Redeem winning tokens after resolution
-polymarket ctf redeem --condition 0xCONDITION...
-
-# Redeem neg-risk positions
-polymarket ctf redeem-neg-risk --condition 0xCONDITION... --amounts "10,5"
-
-# Calculate IDs (read-only, no wallet needed)
-polymarket ctf condition-id --oracle 0xORACLE... --question 0xQUESTION... --outcomes 2
-polymarket ctf collection-id --condition 0xCONDITION... --index-set 1
-polymarket ctf position-id --collection 0xCOLLECTION...
+```text
+You are a risk agent. Given ranked experiment outputs, tighten sizing and liquidity filters to reduce drawdown risk.
+Propose a new search_space.json and run another tournament iteration.
 ```
 
-`--amount` is in USDC (e.g., `10` = $10). The `--partition` flag defaults to binary (`1,2`). On-chain operations require MATIC for gas on Polygon.
-
-### Bridge
-
-Deposit assets from other chains into Polymarket.
-
-```bash
-# Get deposit addresses (EVM, Solana, Bitcoin)
-polymarket bridge deposit 0xWALLET_ADDRESS
-
-# List supported chains and tokens
-polymarket bridge supported-assets
-
-# Check deposit status
-polymarket bridge status 0xDEPOSIT_ADDRESS
+```text
+You are an evaluator agent. Compare the last two tournament runs by win_rate, realized_pnl,
+signal_count, and replay trajectories. Recommend which experiment tags should be promoted.
 ```
 
-### Wallet Management
+## Data Sources (Public, No Auth)
 
-```bash
-polymarket wallet create               # Generate new random wallet
-polymarket wallet create --force       # Overwrite existing
-polymarket wallet import 0xKEY...      # Import existing key
-polymarket wallet address              # Print wallet address
-polymarket wallet show                 # Full wallet info (address, source, config path)
-polymarket wallet reset                # Delete config (prompts for confirmation)
-polymarket wallet reset --force        # Delete without confirmation
-```
+- Gamma API: market discovery
+- CLOB API: midpoint + order book depth
 
-### Interactive Shell
+No private credentials are needed for paper trading.
 
-```bash
-polymarket shell
-# polymarket> markets list --limit 3
-# polymarket> clob book 48331043336612883...
-# polymarket> exit
-```
+## Secrets Safety
 
-Supports command history. All commands work the same as the CLI, just without the `polymarket` prefix.
+`.env` is git-ignored. Keep private credentials out of logs/output.
+For this paper-trading framework, credentials are not required by default.
 
-### Other
-
-```bash
-polymarket status     # API health check
-polymarket setup      # Guided first-time setup wizard
-polymarket upgrade    # Update to the latest version
-polymarket --version
-polymarket --help
-```
-
-## Common Workflows
-
-### Browse and research markets
-
-```bash
-polymarket markets search "bitcoin" --limit 5
-polymarket markets get bitcoin-above-100k
-polymarket clob book 48331043336612883...
-polymarket clob price-history 48331043336612883... --interval 1d
-```
-
-### Set up a new wallet and start trading
-
-```bash
-polymarket wallet create
-polymarket approve set                    # needs MATIC for gas
-polymarket clob balance --asset-type collateral
-polymarket clob market-order --token TOKEN_ID --side buy --amount 5
-```
-
-### Monitor your portfolio
-
-```bash
-polymarket data positions 0xYOUR_ADDRESS
-polymarket data value 0xYOUR_ADDRESS
-polymarket clob orders
-polymarket clob trades
-```
-
-### Place and manage limit orders
-
-```bash
-# Place order
-polymarket clob create-order --token TOKEN_ID --side buy --price 0.45 --size 20
-
-# Check it
-polymarket clob orders
-
-# Cancel if needed
-polymarket clob cancel ORDER_ID
-
-# Or cancel everything
-polymarket clob cancel-all
-```
-
-### Script with JSON output
-
-```bash
-# Pipe market data to jq
-polymarket -o json markets list --limit 100 | jq '.[].question'
-
-# Check prices programmatically
-polymarket -o json clob midpoint TOKEN_ID | jq '.mid'
-
-# Error handling in scripts
-if ! result=$(polymarket -o json clob balance --asset-type collateral 2>/dev/null); then
-  echo "Failed to fetch balance"
-fi
-```
-
-## Architecture
+## Project Layout
 
 ```
-src/
-  main.rs        -- CLI entry point, clap parsing, error handling
-  auth.rs        -- Wallet resolution, RPC provider, CLOB authentication
-  config.rs      -- Config file (~/.config/polymarket/config.json)
-  shell.rs       -- Interactive REPL
-  commands/      -- One module per command group
-  output/        -- Table and JSON rendering per command group
+polytrader/
+  cli.py
+  db.py
+  engine.py
+  market_data.py
+  fill_engine.py
+  registry.py
+  types.py
+  models/
+  sizers/
 ```
+
+## Docs
+
+- `docs/algorithm-authoring.md` – templates and workflow for agent-generated models/sizers
 
 ## License
 
