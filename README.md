@@ -1,4 +1,4 @@
- # polytrader
+ # polypaper
 
 Agent-first modular paper trading framework for Polymarket prediction markets.
 
